@@ -1,93 +1,252 @@
-# Intnership_Sredha Gopan_311133
+# CognixAI — Healthcare Explainable AI
 
+CognixAI is an explainable-AI dashboard for chronic disease progression. It combines an
+XGBoost prediction model, SHAP-based explainability, automatic patient phenotyping, and a
+local LLM chatbot to help clinicians understand *why* a patient's cognitive score is predicted
+to change — and *what could change it*.
 
+The system pairs a Flask REST/SSE API (`api.py`) with a React + TypeScript dashboard
+(`frontend/`), and uses [Ollama](https://ollama.com) to run the chat/reasoning LLM entirely
+locally — no external API calls, no patient data leaving the machine.
 
-## Getting started
+## Features
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **XGBoost Prediction** — regression model forecasts each patient's future cognitive score
+  and trajectory from longitudinal visit data.
+- **SHAP Explainability** — per-patient and cohort-level SHAP values explain which features
+  drive each prediction, with beeswarm/bar visualizations.
+- **Patient Phenotyping** — patients are automatically clustered into clinically meaningful
+  phenotype groups based on their dominant SHAP factors.
+- **LLM Chatbot (Ollama)** — a locally-hosted LLM answers natural-language questions about a
+  patient, grounded in their SHAP factors, phenotype, and peer comparisons.
+- **What-If Simulation Engine** — explore hypothetical feature changes (e.g. "what if BMI
+  dropped by 5 points?") and see the model's predicted impact in real time.
+- **React Dashboard** — a TypeScript + Vite single-page app for browsing patients,
+  explanations, phenotypes, and the chat interface.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Demo Videos
 
-## Add your files
+### 🎥 Overview
+A walkthrough of the dashboard, peer comparisons, and what-if simulation.
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+[▶ Watch Demo](Demo/Dashboard.webm)
+
+### 🎥 Chatbot
+A walkthrough of the AI chatbot assistant.
+
+[▶ Watch Demo](Demo/Chatbot.webm)
+
+## Architecture
+
+The pipeline runs once (or whenever the source data or model logic changes) to produce the
+artifacts served by the application at runtime:
 
 ```
-cd existing_repo
-git remote add origin https://git.invlab.live/internship/intnership_sredha-gopan_311133.git
-git branch -M main
-git push -uf origin main
+chronic_disease_progression.csv
+        │
+        ▼
+pipeline.py                    cleaning, feature engineering, train/test split
+        │
+        ▼
+xgboost_and_shap.py             trains the model, computes SHAP values
+        │                       writes predictions_*.csv, shap_values.pkl,
+        │                       feature_importance.csv, model_report.txt
+        ▼
+generate_shap_phenotype.py      clusters patients into phenotypes
+        │                       builds the RAG knowledge base for the chatbot
+        ▼
+outputs/                        generated CSVs, plots, and RAG JSON
+        │
+        ▼
+api.py  ── Flask ──►  frontend/dist            (built React app)
+        │
+        ▼
+Ollama (local LLM) ── chat replies / simulation explanations
 ```
 
-## Integrate with your tools
+**Supporting modules:**
 
-* [Set up project integrations](https://git.invlab.live/internship/intnership_sredha-gopan_311133/-/settings/integrations)
+| Module | Responsibility |
+|---|---|
+| `prompt_builder.py` | Assembles per-patient context and the system prompt for the LLM |
+| `simulation_engine.py` | Runs "what if" feature-change simulations through the trained model |
+| `reasoning.py` | Clinical reasoning layer — actionable factors, cautions, peer comparisons |
+| `llm_backend.py` | Thin client for the Ollama API |
+| `llm_chatbot.py` | Standalone CLI chatbot (same backend, no web UI) — useful for quick testing |
 
-## Collaborate with your team
+## Repository Structure
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```
+Healthcare/
+├── api.py                          Flask REST + SSE API, serves frontend/dist
+├── pipeline.py                     Data cleaning / feature engineering
+├── xgboost_and_shap.py             Model training + SHAP computation
+├── generate_shap_phenotype.py      Phenotype clustering + RAG knowledge base
+├── prompt_builder.py               Per-patient LLM context / system prompt
+├── reasoning.py                    Clinical reasoning (actionable factors, cautions)
+├── simulation_engine.py            "What if" simulation engine
+├── llm_backend.py                  Ollama client
+├── llm_chatbot.py                  CLI chatbot (no web UI)
+├── start.sh                        Start script (see Running, below)
+├── requirements.txt                Python dependencies
+├── chronic_disease_progression.csv Raw source data
+├── outputs/                        Generated model artifacts (git-ignored)
+└── frontend/                       React + TypeScript + Vite dashboard
+    ├── src/                        Application source
+    ├── public/                     Static assets
+    └── dist/                       Production build output (generated)
+```
 
-## Test and Deploy
+## Prerequisites
 
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- Python 3.10
+- Node.js with `npm` (for the frontend build)
+- [Ollama](https://ollama.com), running locally with a pulled model (default `llama3.1:8b`)
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+# 1. Clone the repository
+git clone https://git.invlab.live/internship/intnership_sredha-gopan_311133.git
+cd intnership_sredha-gopan_311133
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+# 2. Python dependencies
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+# 3. Ollama (in a separate terminal)
+ollama serve
+ollama pull llama3.1:8b
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+# 4. Frontend dependencies
+cd frontend
+npm install
+cd ..
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Generate model outputs
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Run once on first setup, and again any time the source CSV or model/pipeline logic changes.
+`outputs/` is git-ignored — everything in it is reproducible from the CSV.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```bash
+python3 pipeline.py                  # optional: sanity-check the preprocessing step
+python3 xgboost_and_shap.py          # trains model, writes predictions_*.csv, shap_values.pkl, etc.
+python3 generate_shap_phenotype.py   # builds phenotypes + RAG knowledge base
+```
 
-## License
-For open source projects, say how it is licensed.
+## Running
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+./start.sh            # builds the frontend if needed, then serves everything from :5000
+./start.sh --dev       # Flask API only — run the frontend separately for hot reload:
+                       #   cd frontend && npm run dev   (proxies /api to :5000, served on :5173)
+```
+
+Once running:
+
+| Endpoint | URL |
+|---|---|
+| Dashboard | http://localhost:5000 |
+| API | http://localhost:5000/api |
+| Health check | http://localhost:5000/api/health |
+
+## Deployment
+
+There is no Dockerfile or CI pipeline yet — deployment is manual. The application is a single
+Flask process serving both the API and the pre-built static frontend, with a dependency on a
+reachable Ollama instance.
+
+### Prerequisites
+
+- A host with Python 3.10, Node.js, and Ollama installed (or Ollama reachable over the network).
+
+### Installation
+
+```bash
+git clone https://git.invlab.live/internship/intnership_sredha-gopan_311133.git
+cd intnership_sredha-gopan_311133
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
+
+### Generate model outputs
+
+Only needed once, or whenever the CSV or model/phenotype logic changes — these artifacts are
+git-ignored, not committed.
+
+```bash
+python3 xgboost_and_shap.py
+python3 generate_shap_phenotype.py
+```
+
+### Build frontend
+
+Compiles the React app into static assets that Flask will serve.
+
+```bash
+cd frontend && npm run build && cd ..
+```
+
+`start.sh` runs this automatically if `frontend/dist/index.html` is missing.
+
+### Run application
+
+```bash
+./start.sh
+```
+
+This runs `python3 api.py`, which binds to `0.0.0.0:5000` and serves both the SPA and the API
+from a single process.
+
+> **Note:** `app.run(...)` in `api.py` is Flask's development server, not a production-grade
+> WSGI server. For production deployments, run the app behind **Gunicorn** (or Waitress) with
+> **Nginx** as a reverse proxy for TLS termination, static-file caching, and a stable public
+> port — and manage the process with a supervisor such as systemd, supervisord, or pm2.
+
+### Verify deployment
+
+```bash
+curl http://<host>:5000/api/health
+```
+
+A healthy deployment reports `"status": "ok"` and a non-zero `patients_loaded` count.
+
+### Redeployment
+
+- **Frontend-only change:** `cd frontend && npm run build && cd ..`, then restart `api.py`.
+- **Backend or model logic change:** re-run the *Generate model outputs* and *Build frontend*
+  steps above, then restart.
+- Restarting the process simply re-reads `outputs/` at startup — regeneration is only required
+  when the CSV or the model/phenotype scripts themselves changed.
+
+## Environment Variables
+
+All variables are optional; sensible defaults are defined in `llm_backend.py`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama server address |
+| `OLLAMA_MODEL` | `llama3.1:8b` | Model used for chat and intro generation |
+| `OLLAMA_TIMEOUT_S` | `120` | Per-request timeout, in seconds |
+| `OLLAMA_MAX_RETRIES` | `2` | Retries on timeout or 5xx server errors |
+
+## Future Improvements
+
+- Integrate real, IRB-approved clinical datasets in place of the synthetic sample data.
+- Upgrade to a stronger LLM (larger local model or hosted frontier model) for richer reasoning.
+- Ground chatbot responses in external medical knowledge sources (e.g. clinical guidelines,
+  literature retrieval) rather than SHAP context alone.
+- Extend prediction to multiple outcomes beyond cognitive score (e.g. comorbidity risk,
+  hospitalization likelihood).
+- Add Docker support for reproducible, one-command deployment.
+- Add authentication and user management for multi-clinician / multi-tenant use.
+
+## Disclaimer
+
+This project is a research prototype intended for educational purposes. Predictions,
+explanations, and simulations are generated by machine learning models and should not be
+interpreted as medical advice or used for clinical decision-making without professional
+validation.
